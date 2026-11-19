@@ -2,7 +2,8 @@ import { useState } from 'react';
 import {
     DndContext,
     DragOverlay,
-    PointerSensor,
+    MouseSensor,
+    TouchSensor,
     KeyboardSensor,
     closestCorners,
     useSensor,
@@ -21,12 +22,14 @@ const findContainer = (columns, id) => {
     );
 };
 
-export default function Board({ columns, setColumns, onCommit, onEdit, onDelete }) {
+export default function Board({ columns, setColumns, dragDisabled, onCommit, onEdit, onDelete }) {
     const [activeId, setActiveId] = useState(null);
 
     const sensors = useSensors(
         // distance: 5 means a plain click on Edit/Delete doesn't start a drag
-        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+        // press and hold ~250ms to drag, so normal swipes still scroll the page
+        useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
 
@@ -111,6 +114,7 @@ export default function Board({ columns, setColumns, onCommit, onEdit, onDelete 
                         id={col.id}
                         title={col.title}
                         applications={columns[col.id]}
+                        dragDisabled={dragDisabled}
                         onEdit={onEdit}
                         onDelete={onDelete}
                     />

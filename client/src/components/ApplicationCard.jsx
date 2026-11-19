@@ -1,16 +1,18 @@
-const formatDate = (d) =>
-    new Date(d).toLocaleDateString(undefined, { timeZone: 'UTC' });
+import { getDeadlineInfo } from '../utils/deadline';
 
 const isSafeUrl = (url) => /^https?:\/\//i.test(url);
 
 export default function ApplicationCard({ application, onEdit, onDelete, overlay }) {
     const { company, role, deadline, jobUrl, notes } = application;
+    const deadlineInfo = getDeadlineInfo(deadline, status);
 
     return (
         <article className={`card ${overlay ? 'overlay' : ''}`}>
             <h4>{company}</h4>
             <p className="role">{role}</p>
-            {deadline && <p className="deadline">Due {formatDate(deadline)}</p>}
+            {deadlineInfo && (
+                <p className={`deadline ${deadlineInfo.level}`}>{deadlineInfo.label}</p>
+            )}
             {notes && <p className="notes">{notes}</p>}
 
             {!overlay && (

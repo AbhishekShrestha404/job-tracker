@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../api/client';
 import Navbar from '../components/Navbar';
 import Board from '../components/Board';
@@ -20,6 +20,23 @@ export default function Dashboard() {
     const [error, setError] = useState('');
     // null = modal closed, {} = adding new, application object = editing
     const [editing, setEditing] = useState(null);
+    const [search, setSearch] = useState('');
+
+    const query = search.trim().toLowerCase();
+
+    const visibleColumns = useMemo(() => {
+        if (!query) return columns;
+        return Object.fromEntries(
+            Object.entries(columns).map(([status, list]) => [
+                status,
+                list.filter((a) =>
+                    [a.company, a.role, a.location, a.notes]
+                        .filter(Boolean)
+                        .some((field) => field.toLowerCase().includes(query))
+                ),
+            ])
+        );
+    }, [columns, query]);
 
     const load = useCallback(async () => {
         try {
@@ -77,8 +94,20 @@ export default function Dashboard() {
             <main className="container wide">
                 <div className="toolbar">
                     <h2>Your applications</h2>
-                    <button onClick={() => setEditing({})}>+ Add application</button>
+                    <div className="toolbar-right">
+                        <input
+                            type="search"
+                            placeholder="Search company, role, notes..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                        <button onClick={() => setEditing({})}>+ Add application</button>
+                    </div>
                 </div>
+
+                {query && (
+                    <p className="hint">Dragging is paused while searching. Clear the search to reorder.</p>
+                )}
 
                 {error && <p className="error">{error}</p>}
 
@@ -88,6 +117,7 @@ export default function Dashboard() {
                     <Board
                         columns={columns}
                         setColumns={setColumns}
+                        dragDisabled={!!query}
                         onCommit={handleCommit}
                         onEdit={setEditing}
                         onDelete={handleDelete}
