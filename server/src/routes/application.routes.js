@@ -5,12 +5,15 @@ import {
     createApplication,
     updateApplication,
     deleteApplication,
+    reorderApplications,
 } from '../controllers/application.controller.js';
 import { protect } from '../middleware/auth.js';
 
 const router = Router();
 
 router.use(protect); // every route below requires a valid token
+
+router.patch('/reorder', reorderApplications);
 
 router.route('/').get(getApplications).post(createApplication);
 

@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Application, { STATUSES } from '../models/Application.js';
 
 // Only these fields can be set from the request body.
@@ -19,6 +20,13 @@ const pick = (obj, keys) =>
     );
 
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+async function nextPosition(userId, status) {
+    const last = await Application.findOne({ user: userId, status })
+        .sort({ position: -1 })
+        .select('position');
+    return last ? last.position + 1 : 0;
+}
 
 export async function getApplications(req, res, next) {
     try {
@@ -70,10 +78,7 @@ export async function createApplication(req, res, next) {
         const data = pick(req.body, ALLOWED_FIELDS);
 
         // Put the new card at the bottom of its column
-        const position = await Application.countDocuments({
-            user: req.user._id,
-            status: data.status || 'wishlist',
-        });
+        const position = await nextPosition(req.user._id, data.status || 'wishlist');
 
         const application = await Application.create({
             ...data,
@@ -102,10 +107,7 @@ export async function updateApplication(req, res, next) {
 
         // Moving to another column: place it at the bottom of that column
         if (data.status && data.status !== application.status) {
-            data.position = await Application.countDocuments({
-                user: req.user._id,
-                status: data.status,
-            });
+            data.position = await nextPosition(req.user._id, data.status);
         }
 
         application.set(data);
@@ -129,6 +131,41 @@ export async function deleteApplication(req, res, next) {
         }
 
         res.json({ message: 'Application deleted' });
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function reorderApplications(req, res, next) {
+    try {
+        const { items } = req.body;
+
+        if (!Array.isArray(items) || items.length === 0 || items.length > 500) {
+            return res.status(400).json({ message: 'items must be a non-empty array' });
+        }
+
+        const valid = items.every(
+            (it) =>
+                mongoose.isValidObjectId(it.id) &&
+                STATUSES.includes(it.status) &&
+                Number.isInteger(it.position) &&
+                it.position >= 0
+        );
+        if (!valid) {
+            return res.status(400).json({ message: 'Invalid reorder data' });
+        }
+
+        // `user` in the filter means you can only reorder your own cards
+        await Application.bulkWrite(
+            items.map(({ id, status, position }) => ({
+                updateOne: {
+                    filter: { _id: id, user: req.user._id },
+                    update: { $set: { status, position } },
+                },
+            }))
+        );
+
+        res.json({ message: 'Reordered' });
     } catch (err) {
         next(err);
     }
